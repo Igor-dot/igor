@@ -1,0 +1,71 @@
+## install devtools if it's not already installed
+if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
+
+## install uslides from github
+devtools::install_github("mkearney/uslides")
+data("mroz", package="PoEdata")
+mroz1 <- mroz[mroz$lfp==1,] #restricts sample to lfp=1
+educ.ols <- lm(educ~exper+I(exper^2)+mothereduc, data=mroz1)
+
+stargazer(educ.ols, title = "Variáveis Instrumentais", font.size = "small" )
+educHat <- fitted(educ.ols)
+wage.2sls <- lm(log(wage)~educHat+exper+I(exper^2), data=mroz1)
+stargazer(educ.ols, wage.2sls, title = "Variáveis Instrumentais", font.size = "tiny" )
+
+
+wage.ols<-lm(log(wage)~educ+exper+I(exper^2), data=mroz1)
+
+stargazer(wage.ols, wage.2sls, title = "Variáveis Instrumentais e OLS", font.size = "tiny" )
+
+data("mroz", package="PoEdata")
+
+install.packages("AER")
+library(AER)
+mroz1 <- mroz[mroz$lfp==1,] #restricts sample to lfp=1.
+mroz1.ols <- lm(log(wage)~educ+exper+I(exper^2), data=mroz1)
+mroz1.iv <- ivreg(log(wage)~educ+exper+I(exper^2)|
+exper+I(exper^2)+mothereduc, data=mroz1)
+mroz1.iv1 <- ivreg(log(wage)~educ+exper+I(exper^2)|
+exper+I(exper^2)+mothereduc+fathereduc,
+data=mroz1)
+
+library(stargazer)
+stargazer(mroz1.ols, wage.2sls, mroz1.iv, mroz1.iv1,
+title="Equação de Salários: OLS, 2SLS, and IV models compared",
+header=FALSE, 
+font.size = "tiny",
+type="latex", # "html" or "latex" (in index.Rmd) 
+digits=4, 
+intercept.bottom=FALSE, #moves the intercept coef to top
+column.labels=c("OLS","2SLS", "IV mothereduc", 
+"IV mothereduc and fathereduc"),
+dep.var.labels.include = FALSE,
+model.numbers = FALSE,
+dep.var.caption="Variável Dependente: salário",
+model.names=FALSE) #supresses the stars)
+
+summary(mroz1.iv1, diagnostics=TRUE)
+
+
+library(plm)
+
+hausmann<-lm(educ ~ exper+I(exper^2)+mothereduc+fathereduc,
+data=mroz1)$resid
+test<-lm(log(wage)~educ+exper+I(exper^2)+hausmann, data=mroz1)
+
+summary(test)
+
+stargazer(test, type = "latex")
+
+data("mroz", package="PoEdata")
+mroz1 <- mroz[which(mroz$wage>0),]
+nwifeinc <- (mroz1$faminc-mroz1$wage*mroz1$hours)/1000
+G<-2; L<-2; N<-nrow(mroz1)
+x1 <- resid(lm(mtr~kidsl6+nwifeinc, data=mroz1))
+x2 <- resid(lm(educ~kidsl6+nwifeinc, data=mroz1))
+z1 <-resid(lm(mothereduc~kidsl6+nwifeinc, data=mroz1))
+z2 <-resid(lm(fathereduc~kidsl6+nwifeinc, data=mroz1))
+X <- cbind(x1,x2)
+Y <- cbind(z1,z2)
+rB <- min(cancor(X,Y)$cor)
+CraggDonaldF <- ((N-G-L)/L)/((1-rB^2)/rB^2)
